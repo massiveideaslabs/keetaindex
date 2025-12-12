@@ -1,7 +1,25 @@
+import { db } from '../firebase';
+import { 
+  collection, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query,
+  QuerySnapshot,
+  DocumentData,
+  DocumentReference
+} from 'firebase/firestore';
 import { AppItem, Report, SubmissionData } from '../types';
 
-// Get API URL from environment variable, fallback to localhost for development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const APPS_COLLECTION = 'apps';
+const REPORTS_COLLECTION = 'reports';
+
+// Helper to check DB connection
+const checkDb = () => {
+    if (!db) throw new Error("Database not configured. Please check your .env file and ensure VITE_FIREBASE_API_KEY is set.");
+};
 
 // Timeout helper to prevent hanging requests
 const withTimeout = <T>(promise: Promise<T>, ms: number = 30000): Promise<T> => {
@@ -13,35 +31,20 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 30000): Promise<T> => 
     ]);
 };
 
-// Helper to make API requests
-const apiRequest = async <T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> => {
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
-  }
-
-  // Handle 204 No Content responses
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json();
-};
-
 export const getApps = async (): Promise<AppItem[]> => {
   try {
-    return await withTimeout(apiRequest<AppItem[]>('/api/apps'), 30000);
+    checkDb();
+    if (!db) return [];
+  
+    const appsCol = collection(db, APPS_COLLECTION);
+    const q = query(appsCol);
+    // Use timeout for initial fetch too
+    const snapshot = await withTimeout(getDocs(q), 30000) as QuerySnapshot<DocumentData>;
+    
+    return snapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    } as AppItem));
   } catch (err) {
     console.error("Error fetching apps:", err);
     throw err;
@@ -49,55 +52,49 @@ export const getApps = async (): Promise<AppItem[]> => {
 };
 
 export const addApp = async (data: SubmissionData): Promise<AppItem> => {
-  try {
-    return await withTimeout(
-      apiRequest<AppItem>('/api/apps', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error adding app:", err);
-    throw err;
-  }
+  checkDb();
+  if (!db) throw new Error("No DB");
+
+  const newApp = {
+    ...data,
+    tags: ['New', 'Community'],
+    addedAt: Date.now(),
+    clicks: 0,
+    featured: false
+  };
+
+  const docRef = await withTimeout(addDoc(collection(db, APPS_COLLECTION), newApp)) as DocumentReference<DocumentData>;
+  
+  return {
+    ...newApp,
+    id: docRef.id
+  };
 };
 
 export const updateApp = async (id: string, data: Partial<AppItem>): Promise<void> => {
-  try {
-    await withTimeout(
-      apiRequest<void>(`/api/apps/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error updating app:", err);
-    throw err;
-  }
+  checkDb();
+  if (!db) return;
+  
+  const appRef = doc(db, APPS_COLLECTION, id);
+  await withTimeout(updateDoc(appRef, data));
 };
 
 export const deleteApp = async (id: string): Promise<void> => {
-  try {
-    await withTimeout(
-      apiRequest<void>(`/api/apps/${id}`, {
-        method: 'DELETE',
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error deleting app:", err);
-    throw err;
-  }
+  checkDb();
+  if (!db) return;
+
+  const appRef = doc(db, APPS_COLLECTION, id);
+  await withTimeout(deleteDoc(appRef));
 };
 
-export const incrementAppClicks = async (id: string, _currentClicks: number): Promise<void> => {
+export const incrementAppClicks = async (id: string, currentClicks: number): Promise<void> => {
   try {
+    checkDb();
+    if (!db) return;
+
     // Fire and forget, no timeout needed usually, but good practice to catch
-    await apiRequest<void>(`/api/apps/${id}/clicks`, {
-      method: 'PATCH',
-    });
+    const appRef = doc(db, APPS_COLLECTION, id);
+    await updateDoc(appRef, { clicks: currentClicks + 1 });
   } catch (e) {
     console.warn("Failed to increment clicks", e);
   }
@@ -107,7 +104,16 @@ export const incrementAppClicks = async (id: string, _currentClicks: number): Pr
 
 export const getReports = async (): Promise<Report[]> => {
   try {
-    return await withTimeout(apiRequest<Report[]>('/api/reports'), 30000);
+    checkDb();
+    if (!db) return [];
+
+    const reportsCol = collection(db, REPORTS_COLLECTION);
+    const snapshot = await withTimeout(getDocs(reportsCol)) as QuerySnapshot<DocumentData>;
+    
+    return snapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    } as Report));
   } catch (err) {
     console.error("Error fetching reports:", err);
     return []; // Return empty on error to allow app to load
@@ -115,48 +121,38 @@ export const getReports = async (): Promise<Report[]> => {
 };
 
 export const addReport = async (app: AppItem, reasons: string[]): Promise<Report> => {
-  try {
-    return await withTimeout(
-      apiRequest<Report>('/api/reports', {
-        method: 'POST',
-        body: JSON.stringify({
-          appId: app.id,
-          appName: app.name,
-          reasons,
-        }),
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error adding report:", err);
-    throw err;
-  }
+  checkDb();
+  if (!db) throw new Error("No DB");
+
+  const newReport = {
+    appId: app.id,
+    appName: app.name,
+    reasons,
+    timestamp: Date.now()
+  };
+
+  const docRef = await withTimeout(addDoc(collection(db, REPORTS_COLLECTION), newReport)) as DocumentReference<DocumentData>;
+
+  return {
+    ...newReport,
+    id: docRef.id
+  };
 };
 
 export const deleteReport = async (id: string): Promise<void> => {
-  try {
-    await withTimeout(
-      apiRequest<void>(`/api/reports/${id}`, {
-        method: 'DELETE',
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error deleting report:", err);
-    throw err;
-  }
+  checkDb();
+  if (!db) return;
+
+  const reportRef = doc(db, REPORTS_COLLECTION, id);
+  await withTimeout(deleteDoc(reportRef));
 };
 
 export const deleteReportsForApp = async (appId: string): Promise<void> => {
-  try {
-    await withTimeout(
-      apiRequest<void>(`/api/reports/app/${appId}`, {
-        method: 'DELETE',
-      }),
-      30000
-    );
-  } catch (err) {
-    console.error("Error deleting reports for app:", err);
-    throw err;
-  }
+    checkDb();
+    if (!db) return;
+    
+    const reports = await getReports();
+    const toDelete = reports.filter(r => r.appId === appId);
+    
+    await Promise.all(toDelete.map(r => deleteReport(r.id)));
 };
