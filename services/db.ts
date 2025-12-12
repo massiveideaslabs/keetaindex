@@ -92,7 +92,7 @@ export const deleteApp = async (id: string): Promise<void> => {
   }
 };
 
-export const incrementAppClicks = async (id: string, currentClicks: number): Promise<void> => {
+export const incrementAppClicks = async (id: string, _currentClicks: number): Promise<void> => {
   try {
     // Fire and forget, no timeout needed usually, but good practice to catch
     await apiRequest<void>(`/api/apps/${id}/clicks`, {
