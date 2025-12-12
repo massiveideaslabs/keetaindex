@@ -10,9 +10,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middleware - CORS configuration that handles trailing slash
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // If FRONTEND_URL is set, check against it (with and without trailing slash)
+    if (process.env.FRONTEND_URL) {
+      const frontendUrl = process.env.FRONTEND_URL.replace(/\/$/, ''); // Remove trailing slash
+      if (origin === frontendUrl || origin === `${frontendUrl}/`) {
+        return callback(null, true);
+      }
+    }
+    
+    // Fallback to allow all if FRONTEND_URL not set (for development)
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
