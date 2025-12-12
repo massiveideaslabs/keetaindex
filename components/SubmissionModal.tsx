@@ -46,7 +46,7 @@ export const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" onClick={!isSubmitting ? onClose : undefined}></div>
-      <div className="relative bg-white border-2 border-black w-full max-w-lg shadow-[8px_8px_0px_0px_rgba(44,42,42,1)] p-8 animate-in fade-in zoom-in duration-200">
+      <div className="relative bg-white border-2 border-black w-full max-w-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-8 animate-in fade-in zoom-in duration-200">
         {!isSubmitting && (
           <button 
             onClick={onClose}

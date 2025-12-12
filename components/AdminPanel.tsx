@@ -144,7 +144,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </select>
                     <button 
                       onClick={handleAddNewClick}
-                      className="bg-green-600 text-white px-4 py-2 font-mono text-sm font-bold hover:bg-green-700 border border-black shadow-[4px_4px_0px_0px_rgba(44,42,42,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all"
+                      className="bg-green-600 text-white px-4 py-2 font-mono text-sm font-bold hover:bg-green-700 border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all"
                     >
                       + ADD NEW LISTING
                     </button>
