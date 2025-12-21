@@ -29,6 +29,13 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false
     `);
 
+    // Approve all existing apps (they were submitted before approval system)
+    await client.query(`
+      UPDATE apps 
+      SET approved = true 
+      WHERE approved IS NULL OR approved = false
+    `);
+
     // Create reports table
     await client.query(`
       CREATE TABLE IF NOT EXISTS reports (
