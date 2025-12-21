@@ -173,13 +173,14 @@ function App() {
   const adminDeleteApp = async (id: string) => {
     if(!window.confirm("Are you sure you want to delete this? This cannot be undone.")) return;
     try {
+      await dbService.deleteReportsForApp(id); // Delete reports first (due to foreign key)
       await dbService.deleteApp(id);
-      await dbService.deleteReportsForApp(id);
       setApps(prev => prev.filter(a => a.id !== id));
+      setAdminApps(prev => prev.filter(a => a.id !== id));
       setReports(prev => prev.filter(r => r.appId !== id));
     } catch (err) {
-      alert("Delete failed");
-      console.error(err);
+      alert("Delete failed: " + (err instanceof Error ? err.message : String(err)));
+      console.error("Delete error:", err);
     }
   };
   
