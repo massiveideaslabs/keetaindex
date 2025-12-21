@@ -5,6 +5,7 @@ import { AppItem, SubmissionData } from '../types.js';
 export const getApps = async (_req: Request, res: Response) => {
   try {
     // Only return approved apps for public view
+    // Handle NULL approved values (treat as approved for backward compatibility)
     const result = await pool.query(`
       SELECT 
         id,
@@ -16,9 +17,9 @@ export const getApps = async (_req: Request, res: Response) => {
         added_at as "addedAt",
         clicks,
         featured,
-        approved
+        COALESCE(approved, true) as approved
       FROM apps
-      WHERE approved = true
+      WHERE COALESCE(approved, true) = true
       ORDER BY added_at DESC
     `);
 

@@ -105,8 +105,11 @@ function App() {
   };
 
   const filteredApps = useMemo(() => {
-    // 1. Filter
+    // 1. Filter - Only show approved apps on main page
     const filtered = apps.filter(app => {
+      // Only show approved apps (safety check in case backend doesn't filter)
+      if (!app.approved) return false;
+      
       const matchesCategory = activeCategory === Category.ALL || app.category === activeCategory;
       const matchesSearch = 
         app.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -142,6 +145,10 @@ function App() {
     const newApp = await dbService.addApp(data);
     // Don't add to apps list since it's not approved yet
     // It will appear in admin panel for approval
+    // Explicitly don't add unapproved apps to the public list
+    if (!newApp.approved) {
+      // Do nothing - it won't appear until approved
+    }
     
     // Reset view
     setActiveCategory(Category.ALL);
