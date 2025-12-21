@@ -4,6 +4,7 @@ import { AppItem, SubmissionData } from '../types.js';
 
 export const getApps = async (_req: Request, res: Response) => {
   try {
+    // Only return approved apps for public view
     const result = await pool.query(`
       SELECT 
         id,
@@ -14,7 +15,48 @@ export const getApps = async (_req: Request, res: Response) => {
         tags,
         added_at as "addedAt",
         clicks,
-        featured
+        featured,
+        approved
+      FROM apps
+      WHERE approved = true
+      ORDER BY added_at DESC
+    `);
+
+    const apps: AppItem[] = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      url: row.url,
+      category: row.category,
+      tags: row.tags || [],
+      addedAt: parseInt(row.addedAt.toString()),
+      clicks: row.clicks || 0,
+      featured: row.featured || false,
+      approved: row.approved || false
+    }));
+
+    res.json(apps);
+  } catch (error) {
+    console.error('Error fetching apps:', error);
+    res.status(500).json({ error: 'Failed to fetch apps' });
+  }
+};
+
+// Get all apps (including unapproved) for admin
+export const getAllApps = async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id,
+        name,
+        description,
+        url,
+        category,
+        tags,
+        added_at as "addedAt",
+        clicks,
+        featured,
+        approved
       FROM apps
       ORDER BY added_at DESC
     `);
@@ -28,12 +70,13 @@ export const getApps = async (_req: Request, res: Response) => {
       tags: row.tags || [],
       addedAt: parseInt(row.addedAt.toString()),
       clicks: row.clicks || 0,
-      featured: row.featured || false
+      featured: row.featured || false,
+      approved: row.approved || false
     }));
 
     res.json(apps);
   } catch (error) {
-    console.error('Error fetching apps:', error);
+    console.error('Error fetching all apps:', error);
     res.status(500).json({ error: 'Failed to fetch apps' });
   }
 };
@@ -51,12 +94,13 @@ export const addApp = async (req: Request, res: Response) => {
       tags: ['New', 'Community'],
       addedAt: Date.now(),
       clicks: 0,
-      featured: false
+      featured: false,
+      approved: false // New submissions require approval
     };
 
     const result = await pool.query(`
-      INSERT INTO apps (name, description, url, category, tags, added_at, clicks, featured)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO apps (name, description, url, category, tags, added_at, clicks, featured, approved)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING 
         id,
         name,
@@ -66,7 +110,8 @@ export const addApp = async (req: Request, res: Response) => {
         tags,
         added_at as "addedAt",
         clicks,
-        featured
+        featured,
+        approved
     `, [
       newApp.name,
       newApp.description,
@@ -75,7 +120,8 @@ export const addApp = async (req: Request, res: Response) => {
       JSON.stringify(newApp.tags),
       newApp.addedAt,
       newApp.clicks,
-      newApp.featured
+      newApp.featured,
+      newApp.approved
     ]);
 
     const app: AppItem = {
@@ -87,7 +133,8 @@ export const addApp = async (req: Request, res: Response) => {
       tags: result.rows[0].tags || [],
       addedAt: parseInt(result.rows[0].addedAt.toString()),
       clicks: result.rows[0].clicks || 0,
-      featured: result.rows[0].featured || false
+      featured: result.rows[0].featured || false,
+      approved: result.rows[0].approved || false
     };
 
     res.status(201).json(app);
@@ -131,6 +178,10 @@ export const updateApp = async (req: Request, res: Response) => {
       fields.push(`featured = $${paramCount++}`);
       values.push(updates.featured);
     }
+    if (updates.approved !== undefined) {
+      fields.push(`approved = $${paramCount++}`);
+      values.push(updates.approved);
+    }
 
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -151,7 +202,8 @@ export const updateApp = async (req: Request, res: Response) => {
         tags,
         added_at as "addedAt",
         clicks,
-        featured
+        featured,
+        approved
     `, values);
 
     if (result.rows.length === 0) {
@@ -167,7 +219,8 @@ export const updateApp = async (req: Request, res: Response) => {
       tags: result.rows[0].tags || [],
       addedAt: parseInt(result.rows[0].addedAt.toString()),
       clicks: result.rows[0].clicks || 0,
-      featured: result.rows[0].featured || false
+      featured: result.rows[0].featured || false,
+      approved: result.rows[0].approved || false
     };
 
     res.json(app);
@@ -213,6 +266,56 @@ export const incrementAppClicks = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error incrementing clicks:', error);
     res.status(500).json({ error: 'Failed to increment clicks' });
+  }
+};
+
+export const approveApp = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { approved } = req.body;
+
+    if (typeof approved !== 'boolean') {
+      return res.status(400).json({ error: 'approved must be a boolean' });
+    }
+
+    const result = await pool.query(`
+      UPDATE apps
+      SET approved = $1
+      WHERE id = $2
+      RETURNING 
+        id,
+        name,
+        description,
+        url,
+        category,
+        tags,
+        added_at as "addedAt",
+        clicks,
+        featured,
+        approved
+    `, [approved, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'App not found' });
+    }
+
+    const app: AppItem = {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      description: result.rows[0].description,
+      url: result.rows[0].url,
+      category: result.rows[0].category,
+      tags: result.rows[0].tags || [],
+      addedAt: parseInt(result.rows[0].addedAt.toString()),
+      clicks: result.rows[0].clicks || 0,
+      featured: result.rows[0].featured || false,
+      approved: result.rows[0].approved || false
+    };
+
+    res.json(app);
+  } catch (error) {
+    console.error('Error approving app:', error);
+    res.status(500).json({ error: 'Failed to approve app' });
   }
 };
 

@@ -18,8 +18,15 @@ async function runMigrations() {
         added_at BIGINT NOT NULL,
         clicks INTEGER DEFAULT 0,
         featured BOOLEAN DEFAULT false,
+        approved BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Add approved column if it doesn't exist (for existing databases)
+    await client.query(`
+      ALTER TABLE apps 
+      ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false
     `);
 
     // Create reports table

@@ -20,6 +20,7 @@ export interface AppItem {
   addedAt: number;
   clicks?: number;
   featured?: boolean;
+  approved?: boolean;
 }
 
 export interface Report {

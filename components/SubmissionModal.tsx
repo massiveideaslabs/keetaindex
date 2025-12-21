@@ -35,6 +35,8 @@ export const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClos
       await onSubmit({ ...formData, url: submittedUrl });
       setFormData({ name: '', description: '', url: '', category: Category.DEFI }); // Reset
       onClose();
+      // Show success message
+      alert("Submission received! Your project will appear on the site after admin approval.");
     } catch (err) {
       console.error(err);
       setError("Failed to submit. Please check your connection and try again.");

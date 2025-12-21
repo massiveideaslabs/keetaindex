@@ -25,6 +25,7 @@ function App() {
   
   // App State
   const [apps, setApps] = useState<AppItem[]>([]);
+  const [adminApps, setAdminApps] = useState<AppItem[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -55,6 +56,21 @@ function App() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load admin data when entering admin dashboard
+  useEffect(() => {
+    if (view === 'ADMIN_DASHBOARD') {
+      const loadAdminData = async () => {
+        try {
+          const allApps = await dbService.getAllApps();
+          setAdminApps(allApps);
+        } catch (error) {
+          console.error("Failed to load admin apps:", error);
+        }
+      };
+      loadAdminData();
+    }
+  }, [view]);
 
   // --- Logic ---
 
@@ -124,9 +140,10 @@ function App() {
   const handleSubmission = async (data: SubmissionData) => {
     // Bubble up error so Modal can catch it
     const newApp = await dbService.addApp(data);
-    setApps(prev => [newApp, ...prev]);
+    // Don't add to apps list since it's not approved yet
+    // It will appear in admin panel for approval
     
-    // Reset view to ensure the user sees their new submission
+    // Reset view
     setActiveCategory(Category.ALL);
     setSearchTerm('');
     setSortBy('NEWEST');
@@ -259,14 +276,31 @@ function App() {
   if (view === 'ADMIN_DASHBOARD') {
     return (
       <AdminPanel 
-        apps={apps}
+        apps={adminApps}
         reports={reports}
         onAddApp={handleSubmission}
         onUpdateApp={adminUpdateApp}
         onDeleteApp={adminDeleteApp}
         onDismissReport={adminDismissReport}
         onToggleFeatured={adminToggleFeatured}
-        onExit={() => setView('HOME')}
+        onApproveApp={async (id: string, approved: boolean) => {
+          try {
+            const updatedApp = await dbService.approveApp(id, approved);
+            setAdminApps(prev => prev.map(a => a.id === id ? updatedApp : a));
+            // Reload public apps if approving
+            if (approved) {
+              const publicApps = await dbService.getApps();
+              setApps(publicApps);
+            }
+          } catch (err) {
+            alert("Failed to update approval status");
+            console.error(err);
+          }
+        }}
+        onExit={() => {
+          setView('HOME');
+          loadData(); // Reload public apps when exiting admin
+        }}
       />
     );
   }

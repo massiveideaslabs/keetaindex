@@ -41,9 +41,20 @@ const apiRequest = async <T>(
 
 export const getApps = async (): Promise<AppItem[]> => {
   try {
+    // Public endpoint - only returns approved apps
     return await withTimeout(apiRequest<AppItem[]>('/api/apps'), 30000);
   } catch (err) {
     console.error("Error fetching apps:", err);
+    throw err;
+  }
+};
+
+// Get all apps including unapproved (for admin)
+export const getAllApps = async (): Promise<AppItem[]> => {
+  try {
+    return await withTimeout(apiRequest<AppItem[]>('/api/apps/all'), 30000);
+  } catch (err) {
+    console.error("Error fetching all apps:", err);
     throw err;
   }
 };
@@ -157,6 +168,22 @@ export const deleteReportsForApp = async (appId: string): Promise<void> => {
     );
   } catch (err) {
     console.error("Error deleting reports for app:", err);
+    throw err;
+  }
+};
+
+// Approve or reject an app
+export const approveApp = async (id: string, approved: boolean): Promise<AppItem> => {
+  try {
+    return await withTimeout(
+      apiRequest<AppItem>(`/api/apps/${id}/approve`, {
+        method: 'PATCH',
+        body: JSON.stringify({ approved }),
+      }),
+      30000
+    );
+  } catch (err) {
+    console.error("Error approving app:", err);
     throw err;
   }
 };

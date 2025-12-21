@@ -12,6 +12,7 @@ interface AdminPanelProps {
   onUpdateApp: (id: string, data: SubmissionData) => void;
   onDismissReport: (id: string) => void;
   onToggleFeatured: (id: string) => void;
+  onApproveApp: (id: string, approved: boolean) => Promise<void>;
   onExit: () => void;
 }
 
@@ -23,9 +24,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateApp,
   onDismissReport,
   onToggleFeatured,
+  onApproveApp,
   onExit 
 }) => {
-  const [activeTab, setActiveTab] = useState<'APPS' | 'REPORTS'>('APPS');
+  const [activeTab, setActiveTab] = useState<'APPS' | 'REPORTS' | 'PENDING'>('PENDING');
   const [sortBy, setSortBy] = useState<AdminSortOption>('NEWEST');
   
   // Form State
@@ -43,8 +45,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return counts;
   }, [reports]);
 
+  const pendingApps = useMemo(() => {
+    return apps.filter(app => !app.approved).sort((a, b) => b.addedAt - a.addedAt);
+  }, [apps]);
+
+  const approvedApps = useMemo(() => {
+    return apps.filter(app => app.approved);
+  }, [apps]);
+
   const sortedApps = useMemo(() => {
-    return [...apps].sort((a, b) => {
+    const appsToSort = activeTab === 'APPS' ? approvedApps : apps;
+    return [...appsToSort].sort((a, b) => {
       switch (sortBy) {
         case 'NEWEST': 
           return b.addedAt - a.addedAt;
@@ -111,10 +122,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <div className="flex gap-4 mb-6 border-b border-black pb-1">
           <button 
+            onClick={() => setActiveTab('PENDING')}
+            className={`text-lg font-bold font-mono uppercase px-4 py-2 ${activeTab === 'PENDING' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-200'}`}
+          >
+            Pending Approval <span className="bg-yellow-600 text-white px-2 py-0.5 ml-1 text-sm rounded-full">{apps.filter(a => !a.approved).length}</span>
+          </button>
+          <button 
             onClick={() => setActiveTab('APPS')}
             className={`text-lg font-bold font-mono uppercase px-4 py-2 ${activeTab === 'APPS' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-200'}`}
           >
-            Manage Apps ({apps.length})
+            Manage Apps ({apps.filter(a => a.approved).length})
           </button>
           <button 
             onClick={() => setActiveTab('REPORTS')}
@@ -123,6 +140,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             Reports <span className="bg-red-600 text-white px-2 py-0.5 ml-1 text-sm rounded-full">{reports.length}</span>
           </button>
         </div>
+
+        {activeTab === 'PENDING' && (
+          <div className="bg-white border border-black p-6 shadow-lg">
+            <h3 className="font-bold uppercase mb-6">Pending Submissions ({pendingApps.length})</h3>
+            {pendingApps.length === 0 ? (
+              <p className="text-neutral-500 font-mono italic">No pending submissions. All clear!</p>
+            ) : (
+              <div className="space-y-4">
+                {pendingApps.map(app => (
+                  <div key={app.id} className="border border-yellow-300 bg-yellow-50 p-4 flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-bold text-lg">{app.name}</span>
+                        <span className="text-xs font-mono text-neutral-500 bg-white px-2 py-1 rounded">{app.category}</span>
+                      </div>
+                      <p className="text-sm text-neutral-700 mb-2">{app.description}</p>
+                      <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-mono">
+                        {app.url}
+                      </a>
+                      <p className="text-xs text-neutral-500 font-mono mt-2">
+                        Submitted: {new Date(app.addedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 ml-4">
+                      <button 
+                        onClick={async () => {
+                          await onApproveApp(app.id, true);
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 text-xs font-bold uppercase hover:bg-green-700 transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        onClick={() => onDeleteApp(app.id)}
+                        className="bg-red-600 text-white px-4 py-2 text-xs font-bold uppercase hover:bg-red-700 transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === 'APPS' && (
           <div className="bg-white border border-black p-6 shadow-lg">
@@ -158,14 +220,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <th className="p-3 font-mono text-xs uppercase text-neutral-500">Category</th>
                         <th className="p-3 font-mono text-xs uppercase text-neutral-500 text-center">Featured</th>
                         <th className="p-3 font-mono text-xs uppercase text-neutral-500">Clicks</th>
+                        <th className="p-3 font-mono text-xs uppercase text-neutral-500 text-center">Approved</th>
                         <th className="p-3 font-mono text-xs uppercase text-neutral-500 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedApps.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-neutral-400 font-mono">
-                            Database is empty. Add a listing to get started.
+                          <td colSpan={6} className="p-8 text-center text-neutral-400 font-mono">
+                            {activeTab === 'APPS' ? 'No approved apps. Approve submissions in the Pending tab.' : 'Database is empty. Add a listing to get started.'}
                           </td>
                         </tr>
                       ) : sortedApps.map(app => {
@@ -192,6 +255,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               />
                             </td>
                             <td className="p-3 font-mono text-sm">{app.clicks || 0}</td>
+                            <td className="p-3 text-center">
+                              <input 
+                                type="checkbox" 
+                                checked={!!app.approved} 
+                                onChange={() => onApproveApp(app.id, !app.approved)}
+                                className="w-5 h-5 accent-black cursor-pointer border-black"
+                              />
+                            </td>
                             <td className="p-3 text-right">
                               <div className="flex justify-end gap-2">
                                 <button 
