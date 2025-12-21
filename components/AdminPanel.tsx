@@ -46,7 +46,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   }, [reports]);
 
   const pendingApps = useMemo(() => {
-    return apps.filter(app => !app.approved || app.approved === false).sort((a, b) => b.addedAt - a.addedAt);
+    return apps.filter(app => !app.approved).sort((a, b) => b.addedAt - a.addedAt);
   }, [apps]);
 
   const approvedApps = useMemo(() => {
