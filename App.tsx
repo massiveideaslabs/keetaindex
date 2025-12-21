@@ -46,7 +46,7 @@ function App() {
       setReports(fetchedReports);
     } catch (error) {
       console.error("Failed to load data:", error);
-      setDbError("Could not connect to Google Cloud Firestore. Please check your configuration.");
+      setDbError("Could not connect to the backend API. Please check your configuration.");
     } finally {
       setIsLoading(false);
     }
@@ -219,11 +219,10 @@ function App() {
         </p>
         <div className="bg-neutral-100 p-4 font-mono text-xs text-left w-full max-w-md overflow-x-auto">
           <p className="font-bold mb-2">Developer Note:</p>
-          <p>Please ensure you have created a <span className="bg-white px-1">.env</span> file with your Google Cloud / Firebase credentials:</p>
+          <p>Please ensure you have created a <span className="bg-white px-1">.env</span> file with your backend API URL:</p>
           <pre className="mt-2 text-neutral-500">
-            VITE_FIREBASE_API_KEY=...{'\n'}
-            VITE_FIREBASE_PROJECT_ID=...{'\n'}
-            (etc)
+            VITE_API_URL=http://localhost:3001{'\n'}
+            (or your Railway backend URL)
           </pre>
         </div>
       </div>
@@ -280,11 +279,7 @@ function App() {
       <header className="sticky top-0 z-40 bg-white border-b border-black">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="16" height="16" fill="black"/>
-              <line x1="2" y1="2" x2="14" y2="14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              <line x1="14" y1="2" x2="2" y2="14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            <div className="w-4 h-4 bg-black"></div>
             <h1 className="text-xl font-bold tracking-tighter uppercase">Keeta<span className="font-light">.Dev</span></h1>
           </div>
           <button 
